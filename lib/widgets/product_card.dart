@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:e_commerce_app/models/product.dart';
+import 'package:e_commerce_app/providers/favorites_provider.dart';
 
-class ProductCard extends StatelessWidget {
+class ProductCard extends ConsumerWidget {
   final Product product;
   final VoidCallback onTap;
 
   const ProductCard({super.key, required this.product, required this.onTap});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isFavorite = ref.watch(favoritesProvider).contains(product.id);
+
     return GestureDetector(
       onTap: onTap,
       child: Column(
@@ -28,16 +32,23 @@ class ProductCard extends StatelessWidget {
                   Positioned(
                     top: 12,
                     right: 12,
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.favorite_border,
-                        size: 18,
-                        color: Colors.black,
+                    child: GestureDetector(
+                      onTap: () {
+                        ref
+                            .read(favoritesProvider.notifier)
+                            .toggleFavorite(product.id);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          isFavorite ? Icons.favorite : Icons.favorite_border,
+                          size: 18,
+                          color: isFavorite ? Colors.red : Colors.black,
+                        ),
                       ),
                     ),
                   ),
@@ -58,7 +69,7 @@ class ProductCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '\$${product.price.toStringAsFixed(2)}',
+            'LKr.${product.price.toStringAsFixed(2)}',
             style: TextStyle(
               color: Colors.grey[600],
               fontSize: 14,

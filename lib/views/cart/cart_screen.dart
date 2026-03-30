@@ -1,34 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:e_commerce_app/models/product.dart';
 import 'package:e_commerce_app/utils/app_theme.dart';
 import 'package:e_commerce_app/views/checkout/checkout_screen.dart';
+import 'package:e_commerce_app/providers/cart_provider.dart';
 
-class CartScreen extends StatefulWidget {
+class CartScreen extends ConsumerWidget {
   const CartScreen({super.key});
 
   @override
-  State<CartScreen> createState() => _CartScreenState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cartItems = ref.watch(cartProvider);
+    final subtotal = ref.read(cartProvider.notifier).subtotal;
 
-class _CartScreenState extends State<CartScreen> {
-  // Mock cart items (using product and quantity)
-  final List<Map<String, dynamic>> _cartItems = [
-    {'product': mockProducts[0], 'quantity': 1},
-    {'product': mockProducts[3], 'quantity': 1},
-  ];
-
-  double get _subtotal => _cartItems.fold(
-    0,
-    (sum, item) => sum + (item['product'].price * item['quantity']),
-  );
-
-  @override
-  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            color: Colors.black,
+            size: 20,
+          ),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: Text(
           'YOUR BASKET',
           style: Theme.of(context).textTheme.displayMedium?.copyWith(
@@ -39,25 +36,26 @@ class _CartScreenState extends State<CartScreen> {
         ),
         centerTitle: true,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.delete_outline, color: Colors.black),
-            onPressed: () => setState(() => _cartItems.clear()),
-          ),
+          if (cartItems.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: Colors.black),
+              onPressed: () => ref.read(cartProvider.notifier).clearCart(),
+            ),
         ],
       ),
-      body: _cartItems.isEmpty
-          ? _buildEmptyCart()
+      body: cartItems.isEmpty
+          ? _buildEmptyCart(context)
           : Column(
               children: [
                 Expanded(
                   child: ListView.separated(
                     padding: const EdgeInsets.all(24),
-                    itemCount: _cartItems.length,
+                    itemCount: cartItems.length,
                     separatorBuilder: (context, index) =>
                         const Divider(height: 48),
                     itemBuilder: (context, index) {
-                      final item = _cartItems[index];
-                      final Product product = item['product'];
+                      final item = cartItems[index];
+                      final Product product = item.product;
                       return Row(
                         children: [
                           Container(
@@ -86,7 +84,7 @@ class _CartScreenState extends State<CartScreen> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  product.category,
+                                  'Size: ${item.selectedSize}',
                                   style: TextStyle(
                                     color: Colors.grey[500],
                                     fontSize: 12,
@@ -94,7 +92,7 @@ class _CartScreenState extends State<CartScreen> {
                                 ),
                                 const SizedBox(height: 12),
                                 Text(
-                                  '\$${product.price.toStringAsFixed(2)}',
+                                  'LKr.${product.price.toStringAsFixed(2)}',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 16,
@@ -107,21 +105,32 @@ class _CartScreenState extends State<CartScreen> {
                             children: [
                               _buildActionButton(
                                 Icons.add,
-                                () => setState(() => item['quantity']++),
+                                () => ref
+                                    .read(cartProvider.notifier)
+                                    .updateQuantity(
+                                      product.id,
+                                      item.selectedSize,
+                                      1,
+                                    ),
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                '${item['quantity']}',
+                                '${item.quantity}',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
                               const SizedBox(height: 8),
-                              _buildActionButton(Icons.remove, () {
-                                if (item['quantity'] > 1) {
-                                  setState(() => item['quantity']--);
-                                }
-                              }),
+                              _buildActionButton(
+                                Icons.remove,
+                                () => ref
+                                    .read(cartProvider.notifier)
+                                    .updateQuantity(
+                                      product.id,
+                                      item.selectedSize,
+                                      -1,
+                                    ),
+                              ),
                             ],
                           ),
                         ],
@@ -129,7 +138,7 @@ class _CartScreenState extends State<CartScreen> {
                     },
                   ),
                 ),
-                _buildSummary(),
+                _buildSummary(context, subtotal),
               ],
             ),
     );
@@ -149,7 +158,7 @@ class _CartScreenState extends State<CartScreen> {
     );
   }
 
-  Widget _buildEmptyCart() {
+  Widget _buildEmptyCart(BuildContext context) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -168,7 +177,7 @@ class _CartScreenState extends State<CartScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 40),
             child: ElevatedButton(
-              onPressed: () {},
+              onPressed: () => Navigator.pop(context),
               child: const Text('START SHOPPING'),
             ),
           ),
@@ -177,14 +186,14 @@ class _CartScreenState extends State<CartScreen> {
     );
   }
 
-  Widget _buildSummary() {
+  Widget _buildSummary(BuildContext context, double subtotal) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withOpacity(0.05),
             blurRadius: 10,
             offset: const Offset(0, -5),
           ),
@@ -206,7 +215,7 @@ class _CartScreenState extends State<CartScreen> {
                   ),
                 ),
                 Text(
-                  '\$${_subtotal.toStringAsFixed(2)}',
+                  'LKr.${subtotal.toStringAsFixed(2)}',
                   style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,

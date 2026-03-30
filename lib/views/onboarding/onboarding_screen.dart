@@ -141,7 +141,7 @@ class OnboardingPage extends StatelessWidget {
             height: 300,
             width: double.infinity,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.5),
+              color: Colors.white.withOpacity(0.5),
               borderRadius: BorderRadius.circular(20),
             ),
             child: const Center(

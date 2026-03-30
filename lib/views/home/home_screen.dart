@@ -1,42 +1,47 @@
 import 'package:flutter/material.dart';
-import 'package:e_commerce_app/models/category.dart';
-import 'package:e_commerce_app/models/product.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:e_commerce_app/services/firestore_service.dart';
+import 'package:e_commerce_app/services/auth_service.dart';
+import 'package:e_commerce_app/models/product.dart' as model;
 import 'package:e_commerce_app/utils/app_theme.dart';
 import 'package:e_commerce_app/views/product/product_details_screen.dart';
 import 'package:e_commerce_app/views/product/product_listing_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:e_commerce_app/views/profile/profile_screen.dart';
+import 'package:e_commerce_app/views/settings/settings_screen.dart';
+import 'package:e_commerce_app/views/notifications/notification_screen.dart';
+import 'package:e_commerce_app/views/onboarding/onboarding_screen.dart';
+import 'package:e_commerce_app/views/cart/cart_screen.dart';
 import 'package:e_commerce_app/widgets/product_card.dart';
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen> {
   String _selectedCategory = 'All';
   String _searchQuery = '';
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   Widget build(BuildContext context) {
-    // Filter logic
-    final filteredProducts = mockProducts.where((product) {
-      final matchesCategory =
-          _selectedCategory == 'All' || product.category == _selectedCategory;
-      final matchesSearch =
-          product.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          product.category.toLowerCase().contains(_searchQuery.toLowerCase());
-      return product.isFeatured && matchesCategory && matchesSearch;
-    }).toList();
+    final user = ref.watch(authServiceProvider).currentUser;
+    final firstName = user?.email?.split('@')[0].toUpperCase() ?? 'GUEST';
 
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.menu, color: Colors.black),
-          onPressed: () {},
+          onPressed: () {
+            _scaffoldKey.currentState?.openDrawer();
+          },
         ),
         title: Text(
           'ETHEREAL',
@@ -49,14 +54,31 @@ class _HomeScreenState extends State<HomeScreen> {
         centerTitle: true,
         actions: [
           IconButton(
+            icon: const Icon(Icons.shopping_bag_outlined, color: Colors.black),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const CartScreen()),
+              );
+            },
+          ),
+          IconButton(
             icon: const Icon(
               Icons.notifications_none_outlined,
               color: Colors.black,
             ),
-            onPressed: () {},
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const NotificationScreen(),
+                ),
+              );
+            },
           ),
         ],
       ),
+      drawer: _buildDrawer(context),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -69,7 +91,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'HELLO ALEX,',
+                    'HELLO $firstName,',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       letterSpacing: 2,
                       fontWeight: FontWeight.w500,
@@ -117,39 +139,55 @@ class _HomeScreenState extends State<HomeScreen> {
             // Categories
             SizedBox(
               height: 40,
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                scrollDirection: Axis.horizontal,
-                itemCount: mockCategories.length,
-                itemBuilder: (context, index) {
-                  final category = mockCategories[index];
-                  final isSelected = _selectedCategory == category.name;
-                  return GestureDetector(
-                    onTap: () =>
-                        setState(() => _selectedCategory = category.name),
-                    child: Container(
-                      margin: const EdgeInsets.only(right: 12),
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      decoration: BoxDecoration(
-                        color: isSelected ? AppTheme.primaryBlue : Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: isSelected
-                              ? AppTheme.primaryBlue
-                              : Colors.grey[300]!,
+              child: StreamBuilder(
+                stream: ref.read(firestoreServiceProvider).getCategories(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) return const SizedBox();
+
+                  final categories = snapshot.data!.docs;
+
+                  return ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    scrollDirection: Axis.horizontal,
+                    itemCount: categories.length,
+                    itemBuilder: (context, index) {
+                      final categoryData =
+                          categories[index].data() as Map<String, dynamic>;
+                      final categoryName = categoryData['name'] ?? 'Unknown';
+                      final isSelected = _selectedCategory == categoryName;
+
+                      return GestureDetector(
+                        onTap: () =>
+                            setState(() => _selectedCategory = categoryName),
+                        child: Container(
+                          margin: const EdgeInsets.only(right: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? AppTheme.primaryBlue
+                                : Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: isSelected
+                                  ? AppTheme.primaryBlue
+                                  : Colors.grey[300]!,
+                            ),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            categoryName.toUpperCase(),
+                            style: TextStyle(
+                              color: isSelected
+                                  ? Colors.white
+                                  : Colors.grey[600],
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1,
+                            ),
+                          ),
                         ),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        category.name.toUpperCase(),
-                        style: TextStyle(
-                          color: isSelected ? Colors.white : Colors.grey[600],
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1,
-                        ),
-                      ),
-                    ),
+                      );
+                    },
                   );
                 },
               ),
@@ -196,8 +234,17 @@ class _HomeScreenState extends State<HomeScreen> {
             // Featured Grid
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: filteredProducts.isEmpty
-                  ? Center(
+              child: StreamBuilder(
+                stream: ref
+                    .read(firestoreServiceProvider)
+                    .getProducts(category: _selectedCategory),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return Center(
                       child: Padding(
                         padding: const EdgeInsets.all(40.0),
                         child: Text(
@@ -205,39 +252,167 @@ class _HomeScreenState extends State<HomeScreen> {
                           style: TextStyle(color: Colors.grey[500]),
                         ),
                       ),
-                    )
-                  : GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            childAspectRatio: 0.65,
-                            crossAxisSpacing: 16,
-                            mainAxisSpacing: 24,
-                          ),
-                      itemCount: filteredProducts.length,
-                      itemBuilder: (context, index) {
-                        return ProductCard(
-                          product: filteredProducts[index],
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => ProductDetailsScreen(
-                                  product: filteredProducts[index],
-                                ),
-                              ),
-                            );
-                          },
-                        );
-                      },
-                    ),
+                    );
+                  }
+
+                  final products = snapshot.data!.docs;
+                  final filteredProducts = products.where((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    final name = (data['name'] ?? '').toString().toLowerCase();
+                    return name.contains(_searchQuery.toLowerCase());
+                  }).toList();
+
+                  return GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          childAspectRatio: 0.65,
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 24,
+                        ),
+                    itemCount: filteredProducts.length,
+                    itemBuilder: (context, index) {
+                      final data =
+                          filteredProducts[index].data()
+                              as Map<String, dynamic>;
+                      final product = model.Product(
+                        id: data['id'],
+                        name: data['name'],
+                        description: data['description'],
+                        price: (data['price'] as num).toDouble(),
+                        imageUrl: data['imageUrl'],
+                        category: data['category'],
+                        rating: (data['rating'] as num).toDouble(),
+                        isFeatured: data['isFeatured'],
+                      );
+
+                      return ProductCard(
+                        product: product,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  ProductDetailsScreen(product: product),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  );
+                },
+              ),
             ),
             const SizedBox(height: 40),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildDrawer(BuildContext context) {
+    return Drawer(
+      backgroundColor: Colors.white,
+      child: Column(
+        children: [
+          DrawerHeader(
+            decoration: const BoxDecoration(color: Colors.white),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const CircleAvatar(
+                  radius: 40,
+                  backgroundColor: AppTheme.lightGrey,
+                  child: Icon(Icons.person, size: 40, color: Colors.grey),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'ALEX ATELIER',
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _buildDrawerItem(
+            icon: Icons.person_outline,
+            title: 'PROFILE',
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ProfileScreen()),
+              );
+            },
+          ),
+          _buildDrawerItem(
+            icon: Icons.settings_outlined,
+            title: 'SETTINGS',
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsScreen()),
+              );
+            },
+          ),
+          _buildDrawerItem(
+            icon: Icons.notifications_none_outlined,
+            title: 'NOTIFICATIONS',
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const NotificationScreen(),
+                ),
+              );
+            },
+          ),
+          const Spacer(),
+          _buildDrawerItem(
+            icon: Icons.logout,
+            title: 'LOGOUT',
+            textColor: Colors.redAccent,
+            onTap: () {
+              // Sign out logic
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const OnboardingScreen(),
+                ),
+                (route) => false,
+              );
+            },
+          ),
+          const SizedBox(height: 30),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDrawerItem({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+    Color textColor = Colors.black,
+  }) {
+    return ListTile(
+      leading: Icon(icon, color: textColor, size: 22),
+      title: Text(
+        title,
+        style: TextStyle(
+          color: textColor,
+          fontWeight: FontWeight.bold,
+          fontSize: 13,
+          letterSpacing: 1,
+        ),
+      ),
+      onTap: onTap,
     );
   }
 }

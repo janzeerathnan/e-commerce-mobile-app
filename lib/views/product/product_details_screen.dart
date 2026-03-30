@@ -1,19 +1,51 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:e_commerce_app/models/product.dart';
 import 'package:e_commerce_app/utils/app_theme.dart';
+import 'package:e_commerce_app/providers/cart_provider.dart';
+import 'package:e_commerce_app/views/cart/cart_screen.dart';
 
-class ProductDetailsScreen extends StatefulWidget {
+class ProductDetailsScreen extends ConsumerStatefulWidget {
   final Product product;
 
   const ProductDetailsScreen({super.key, required this.product});
 
   @override
-  State<ProductDetailsScreen> createState() => _ProductDetailsScreenState();
+  ConsumerState<ProductDetailsScreen> createState() =>
+      _ProductDetailsScreenState();
 }
 
-class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
+class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
   String _selectedSize = 'M';
   int _quantity = 1;
+
+  void _addToCart({bool navigateToCart = false}) {
+    ref
+        .read(cartProvider.notifier)
+        .addToCart(widget.product, quantity: _quantity, size: _selectedSize);
+
+    if (navigateToCart) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const CartScreen()),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Added ${widget.product.name} to basket'),
+          action: SnackBarAction(
+            label: 'VIEW CART',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const CartScreen()),
+              );
+            },
+          ),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -92,7 +124,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    '\$${widget.product.price.toStringAsFixed(2)}',
+                    'LKr.${widget.product.price.toStringAsFixed(2)}',
                     style: TextStyle(
                       fontSize: 24,
                       color: AppTheme.primaryBlue,
@@ -157,7 +189,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                       fontSize: 15,
                     ),
                   ),
-                  const SizedBox(height: 100), // Space for bottom button
+                  const SizedBox(height: 120), // Space for bottom buttons
                 ],
               ),
             ),
@@ -165,57 +197,84 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         ],
       ),
       bottomSheet: Container(
-        height: 100,
+        height: 140,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
         decoration: BoxDecoration(
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
+              color: Colors.black.withOpacity(0.05),
               blurRadius: 10,
               offset: const Offset(0, -5),
             ),
           ],
         ),
-        child: Row(
+        child: Column(
           children: [
-            Container(
-              height: 56,
-              decoration: BoxDecoration(
-                color: AppTheme.lightGrey,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.remove, size: 20),
-                    onPressed: () {
-                      if (_quantity > 1) setState(() => _quantity--);
-                    },
+            Row(
+              children: [
+                Container(
+                  height: 45,
+                  decoration: BoxDecoration(
+                    color: AppTheme.lightGrey,
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  Text(
-                    '$_quantity',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.remove, size: 18),
+                        onPressed: () {
+                          if (_quantity > 1) setState(() => _quantity--);
+                        },
+                      ),
+                      Text(
+                        '$_quantity',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.add, size: 18),
+                        onPressed: () => setState(() => _quantity++),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: SizedBox(
+                    height: 45,
+                    child: OutlinedButton(
+                      onPressed: () => _addToCart(navigateToCart: false),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Colors.black),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        'ADD TO BASKET',
+                        style: TextStyle(color: Colors.black, fontSize: 12),
+                      ),
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.add, size: 20),
-                    onPressed: () => setState(() => _quantity++),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-            const SizedBox(width: 16),
-            Expanded(
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              height: 45,
               child: ElevatedButton(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Added to basket')),
-                  );
-                },
-                child: const Text('ADD TO BASKET'),
+                onPressed: () => _addToCart(navigateToCart: true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryBlue,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text('BUY NOW', style: TextStyle(fontSize: 12)),
               ),
             ),
           ],
